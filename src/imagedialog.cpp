@@ -24,7 +24,7 @@
 #include "gmenu2x.h"
 #include "utilities.h"
 
-#include <SDL.h>
+#include <SDL2/SDL.h>
 
 //for browsing the filesystem
 #include <sys/stat.h>

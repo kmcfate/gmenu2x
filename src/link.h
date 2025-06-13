@@ -21,7 +21,7 @@
 #ifndef LINK_H
 #define LINK_H
 
-#include <SDL.h>
+#include <SDL2/SDL.h>
 
 #include <memory>
 #include <functional>

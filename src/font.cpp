@@ -5,8 +5,8 @@
 #include "surface.h"
 #include "utilities.h"
 
-#include <SDL.h>
-#include <SDL_ttf.h>
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_ttf.h>
 
 #include <algorithm>
 #include <cassert>
@@ -90,6 +90,14 @@ int Font::writeLine(Surface& surface, const std::uint16_t *text, int x, int y,
 	}
 	const int width = s->w;
 
+	SDL_Texture *texture = SDL_CreateTextureFromSurface(surface.renderer, s);
+	SDL_FreeSurface(s);
+	if (!texture) {
+		ERROR("Texture creation failed: %s\n", SDL_GetError());
+		SDL_ClearError();
+		return width;
+	}
+
 	switch (halign) {
 	case HAlignLeft:
 		break;
@@ -102,22 +110,22 @@ int Font::writeLine(Surface& surface, const std::uint16_t *text, int x, int y,
 	}
 
 	SDL_Rect rect = { (Sint16) x, (Sint16) (y - 1), 0, 0 };
-	SDL_BlitSurface(s, NULL, surface.raw, &rect);
+	SDL_RenderCopy(surface.renderer, texture, NULL, &rect);
 
-	/* Note: rect.x / rect.y are reset everytime because SDL_BlitSurface
+	/* Note: rect.x / rect.y are reset everytime because SDL_RenderCopy
 	 * will modify them if negative */
 	rect.x = x;
 	rect.y = y + 1;
-	SDL_BlitSurface(s, NULL, surface.raw, &rect);
+	SDL_RenderCopy(surface.renderer, texture, NULL, &rect);
 
 	rect.x = x - 1;
 	rect.y = y;
-	SDL_BlitSurface(s, NULL, surface.raw, &rect);
+	SDL_RenderCopy(surface.renderer, texture, NULL, &rect);
 
 	rect.x = x + 1;
 	rect.y = y;
-	SDL_BlitSurface(s, NULL, surface.raw, &rect);
-	SDL_FreeSurface(s);
+	SDL_RenderCopy(surface.renderer, texture, NULL, &rect);
+	SDL_DestroyTexture(texture);
 
 	rect.x = x;
 	rect.y = y;
@@ -131,8 +139,15 @@ int Font::writeLine(Surface& surface, const std::uint16_t *text, int x, int y,
 		SDL_ClearError();
 		return width;
 	}
-	SDL_BlitSurface(s, NULL, surface.raw, &rect);
+	texture = SDL_CreateTextureFromSurface(surface.renderer, s);
 	SDL_FreeSurface(s);
+	if (!texture) {
+		ERROR("Texture creation failed: %s\n", SDL_GetError());
+		SDL_ClearError();
+		return width;
+	}
+	SDL_RenderCopy(surface.renderer, texture, NULL, &rect);
+	SDL_DestroyTexture(texture);
 
 	return width;
 }

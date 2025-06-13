@@ -20,6 +20,7 @@
 
 #include "surface.h"
 
+#include "SDL_render.h"
 #include "compat-algorithm.h"
 #include "debug.h"
 #include "gmenu2x.h"
@@ -31,10 +32,11 @@
 #include <iomanip>
 #include <utility>
 
-#include <SDL_rotozoom.h>
+#include <SDL2/SDL2_rotozoom.h>
 
 using namespace std;
 
+SDL_Renderer* Surface::globalRenderer = nullptr;
 
 // RGBAColor:
 
@@ -68,51 +70,63 @@ ostream& operator<<(ostream& os, RGBAColor const& color) {
 // Surface:
 
 Surface::Surface(Surface const& other)
-	: Surface(SDL_ConvertSurface(other.raw, other.raw->format, SDL_SWSURFACE))
+	: renderer(other.renderer)
+	, w(other.w)
+	, h(other.h)
 {
-	// Note: A bug in SDL_ConvertSurface() leaves the per-surface alpha
-	//       undefined when converting from RGBA to RGBA. This can cause
-	//       problems if the surface is later converted to a format without
-	//       an alpha channel, such as the display format.
-	raw->format->alpha = other.raw->format->alpha;
+	Uint32 format;
+	SDL_QueryTexture(other.texture, &format, nullptr, nullptr, nullptr);
+	texture = SDL_CreateTexture(renderer, format, SDL_TEXTUREACCESS_TARGET, w, h);
+	SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+	SDL_Texture* currentTexture = SDL_GetRenderTarget(renderer);
+	SDL_SetRenderTarget(renderer, texture);
+	SDL_RenderCopy(renderer, other.texture, nullptr, nullptr);
+	SDL_SetRenderTarget(renderer, currentTexture);
 }
 
-void Surface::blit(SDL_Surface *destination, int x, int y, int w, int h, int a) const {
+void Surface::blit(SDL_Texture *destination, int x, int y, int w, int h, int a) const {
 	if (destination == NULL || a==0) return;
 
-	SDL_Rect src = { 0, 0, static_cast<Uint16>(w), static_cast<Uint16>(h) };
-	SDL_Rect dest;
-	dest.x = x;
-	dest.y = y;
-	if (a>0 && a!=raw->format->alpha)
-		SDL_SetAlpha(raw, SDL_SRCALPHA|SDL_RLEACCEL, a);
-	SDL_BlitSurface(raw, (w==0 || h==0) ? NULL : &src, destination, &dest);
-}
-void Surface::blit(Surface& destination, int x, int y, int w, int h, int a) const {
-	blit(destination.raw, x, y, w, h, a);
+	SDL_Rect src = { 0, 0, static_cast<Uint16>(w ? w : this->w), static_cast<Uint16>(h ? h : this->h) };
+	SDL_Rect dest = { x, y, src.w, src.h };
+	
+	if (a != -1) {
+		SDL_SetTextureAlphaMod(texture, a);
+	}
+	SDL_RenderCopy(renderer, texture, &src, &dest);
+	if (a != -1) {
+		SDL_SetTextureAlphaMod(texture, 255);
+	}
 }
 
-void Surface::blitCenter(SDL_Surface *destination, int x, int y, int w, int h, int a) const {
-	int ow = raw->w / 2; if (w != 0) ow = min(ow, w / 2);
-	int oh = raw->h / 2; if (h != 0) oh = min(oh, h / 2);
+void Surface::blit(Surface& destination, int x, int y, int w, int h, int a) const {
+	blit(destination.texture, x, y, w, h, a);
+}
+
+void Surface::blitCenter(SDL_Texture *destination, int x, int y, int w, int h, int a) const {
+	int ow = this->w / 2; if (w != 0) ow = min(ow, w / 2);
+	int oh = this->h / 2; if (h != 0) oh = min(oh, h / 2);
 	blit(destination, x - ow, y - oh, w, h, a);
 }
+
 void Surface::blitCenter(Surface& destination, int x, int y, int w, int h, int a) const {
-	blitCenter(destination.raw, x, y, w, h, a);
+	blitCenter(destination.texture, x, y, w, h, a);
 }
 
-void Surface::blitRight(SDL_Surface *destination, int x, int y, int w, int h, int a) const {
-	if (!w) w = raw->w;
-	blit(destination, x - min(raw->w, w), y, w, h, a);
+void Surface::blitRight(SDL_Texture *destination, int x, int y, int w, int h, int a) const {
+	if (!w) w = this->w;
+	blit(destination, x - min(this->w, w), y, w, h, a);
 }
+
 void Surface::blitRight(Surface& destination, int x, int y, int w, int h, int a) const {
-	if (!w) w = raw->w;
-	blitRight(destination.raw, x, y, w, h, a);
+	if (!w) w = this->w;
+	blitRight(destination.texture, x, y, w, h, a);
 }
 
 void Surface::box(SDL_Rect re, RGBAColor c) {
 	if (c.a == 255) {
-		SDL_FillRect(raw, &re, c.pixelValue(raw->format));
+		SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, c.a);
+		SDL_RenderFillRect(renderer, &re);
 	} else if (c.a != 0) {
 		fillRectAlpha(re, c);
 	}
@@ -143,7 +157,7 @@ void Surface::rectangle(SDL_Rect re, RGBAColor c) {
 }
 
 void Surface::clearClipRect() {
-	SDL_SetClipRect(raw,NULL);
+	SDL_RenderSetClipRect(renderer, nullptr);
 }
 
 void Surface::setClipRect(int x, int y, int w, int h) {
@@ -155,12 +169,12 @@ void Surface::setClipRect(int x, int y, int w, int h) {
 }
 
 void Surface::setClipRect(SDL_Rect rect) {
-	SDL_SetClipRect(raw,&rect);
+	SDL_RenderSetClipRect(renderer, &rect);
 }
 
 void Surface::applyClipRect(SDL_Rect& rect) {
 	SDL_Rect clip;
-	SDL_GetClipRect(raw, &clip);
+	SDL_RenderGetClipRect(renderer, &clip);
 
 	// Clip along X-axis.
 	if (rect.x < clip.x) {
@@ -186,10 +200,10 @@ void Surface::blit(Surface& destination, SDL_Rect container, Font::HAlign halign
 	case Font::HAlignLeft:
 		break;
 	case Font::HAlignCenter:
-		container.x += container.w / 2 - raw->w / 2;
+		container.x += container.w / 2 - w / 2;
 		break;
 	case Font::HAlignRight:
-		container.x += container.w-raw->w;
+		container.x += container.w-w;
 		break;
 	}
 
@@ -197,88 +211,25 @@ void Surface::blit(Surface& destination, SDL_Rect container, Font::HAlign halign
 	case Font::VAlignTop:
 		break;
 	case Font::VAlignMiddle:
-		container.y += container.h / 2 - raw->h / 2;
+		container.y += container.h / 2 - h / 2;
 		break;
 	case Font::VAlignBottom:
-		container.y += container.h-raw->h;
+		container.y += container.h-h;
 		break;
 	}
 
 	blit(destination, container.x, container.y);
 }
 
-static inline uint32_t mult8x4(uint32_t c, uint8_t a) {
-	return ((((c >> 8) & 0x00FF00FF) * a) & 0xFF00FF00)
-	     | ((((c & 0x00FF00FF) * a) & 0xFF00FF00) >> 8);
-}
-
 void Surface::fillRectAlpha(SDL_Rect rect, RGBAColor c) {
 	applyClipRect(rect);
 	if (rect.w == 0 || rect.h == 0) {
-		// Entire rectangle is outside clipping area.
 		return;
 	}
 
-	if (SDL_MUSTLOCK(raw)) {
-		if (SDL_LockSurface(raw) < 0) {
-			return;
-		}
-	}
-
-	SDL_PixelFormat *format = raw->format;
-	uint32_t color = c.pixelValue(format);
-	uint8_t alpha = c.a;
-
-	uint8_t* edge = static_cast<uint8_t*>(raw->pixels)
-	               + rect.y * raw->pitch
-	               + rect.x * format->BytesPerPixel;
-
-	// Blending: surf' = surf * (1 - alpha) + fill * alpha
-
-	if (format->BytesPerPixel == 2) {
-		uint32_t Rmask = format->Rmask;
-		uint32_t Gmask = format->Gmask;
-		uint32_t Bmask = format->Bmask;
-
-		// Pre-multiply the fill color. We're hardcoding alpha to 1: 15/16bpp
-		// modes are unlikely to have an alpha channel and even if they do,
-		// the written alpha isn't used by gmenu2x.
-		uint16_t f = (((color & Rmask) * alpha >> 8) & Rmask)
-		           | (((color & Gmask) * alpha >> 8) & Gmask)
-		           | (((color & Bmask) * alpha >> 8) & Bmask)
-		           | format->Amask;
-		alpha = 255 - alpha;
-
-		for (auto y = 0; y < rect.h; y++) {
-			for (auto x = 0; x < rect.w; x++) {
-				uint16_t& pixel = reinterpret_cast<uint16_t*>(edge)[x];
-				uint32_t R = ((pixel & Rmask) * alpha >> 8) & Rmask;
-				uint32_t G = ((pixel & Gmask) * alpha >> 8) & Gmask;
-				uint32_t B = ((pixel & Bmask) * alpha >> 8) & Bmask;
-				pixel = uint16_t(R | G | B) + f;
-			}
-			edge += raw->pitch;
-		}
-	} else if (format->BytesPerPixel == 4) {
-		// Assume the pixel format uses 8 bits per component; we don't care
-		// which component is where since they all blend the same.
-		uint32_t f = mult8x4(color, alpha); // pre-multiply the fill color
-		alpha = 255 - alpha;
-
-		for (auto y = 0; y < rect.h; y++) {
-			for (auto x = 0; x < rect.w; x++) {
-				uint32_t& pixel = reinterpret_cast<uint32_t*>(edge)[x];
-				pixel = mult8x4(pixel, alpha) + f;
-			}
-			edge += raw->pitch;
-		}
-	} else {
-		assert(false);
-	}
-
-	if (SDL_MUSTLOCK(raw)) {
-		SDL_UnlockSurface(raw);
-	}
+	SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+	SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, c.a);
+	SDL_RenderFillRect(renderer, &rect);
 }
 
 
@@ -287,49 +238,79 @@ void Surface::fillRectAlpha(SDL_Rect rect, RGBAColor c) {
 shared_ptr<OffscreenSurface> OffscreenSurface::emptySurface(
 		const GMenu2X &gmenu2x, int width, int height)
 {
-	unsigned int uiScale = gmenu2x.getUiScale();
-	SDL_Surface *stretched,
-		    *raw = SDL_CreateRGBSurface(
-			SDL_SWSURFACE, width, height, 32, 0, 0, 0, 0);
-	if (!raw)
+	SDL_Texture *texture = SDL_CreateTexture(
+		Surface::getGlobalRenderer(),
+		SDL_PIXELFORMAT_ABGR8888,
+		SDL_TEXTUREACCESS_TARGET,
+		width,
+		height
+	);
+	if (!texture)
 		return shared_ptr<OffscreenSurface>();
 
-	SDL_FillRect(raw, nullptr, SDL_MapRGB(raw->format, 0, 0, 0));
+	SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
+	SDL_Texture* currentTexture = SDL_GetRenderTarget(Surface::getGlobalRenderer());
+	SDL_SetRenderTarget(Surface::getGlobalRenderer(), texture);
+	SDL_SetRenderDrawColor(Surface::getGlobalRenderer(), 0, 0, 0, 255);
+	SDL_RenderClear(Surface::getGlobalRenderer());
+	SDL_SetRenderTarget(Surface::getGlobalRenderer(), currentTexture);
 
-	return shared_ptr<OffscreenSurface>(new OffscreenSurface(raw));
+	return shared_ptr<OffscreenSurface>(new OffscreenSurface(texture));
 }
 
 shared_ptr<OffscreenSurface> OffscreenSurface::loadImage(
 		const GMenu2X &gmenu2x, const string& img,
 		unsigned int width, unsigned int height, bool loadAlpha)
 {
-	SDL_Surface *stretched, *raw = loadPNG(img, loadAlpha);
+	SDL_Surface *raw = loadPNG(img, loadAlpha);
 	if (!raw) {
 		DEBUG("Couldn't load surface '%s'\n", img.c_str());
 		return shared_ptr<OffscreenSurface>();
 	}
 
-	if ((width && raw->w != width) || (height && raw->h != height)) {
-		float wratio = width ? (float)width / (float)raw->w : 1.0;
-		float hratio = height ? (float)height / (float)raw->h : 1.0;
+	SDL_Texture *texture = SDL_CreateTextureFromSurface(Surface::getGlobalRenderer(), raw);
+	SDL_FreeSurface(raw);
 
-		stretched = zoomSurface(raw, wratio, hratio, true);
-		SDL_FreeSurface(raw);
-		raw = stretched;
+	if (!texture) {
+		DEBUG("Couldn't create texture from surface '%s'\n", img.c_str());
+		return shared_ptr<OffscreenSurface>();
 	}
 
-	return shared_ptr<OffscreenSurface>(new OffscreenSurface(raw));
+	int texW, texH;
+	Uint32 format;
+	SDL_QueryTexture(texture, &format, nullptr, &texW, &texH);
+
+	if ((width && texW != width) || (height && texH != height)) {
+		SDL_Texture *stretched = SDL_CreateTexture(
+			Surface::getGlobalRenderer(),
+			format,
+			SDL_TEXTUREACCESS_TARGET,
+			width ? width : texW,
+			height ? height : texH
+		);
+		if (stretched) {
+			SDL_SetTextureBlendMode(stretched, SDL_BLENDMODE_BLEND);
+			SDL_Texture* currentTexture = SDL_GetRenderTarget(Surface::getGlobalRenderer());
+			SDL_SetRenderTarget(Surface::getGlobalRenderer(), stretched);
+			SDL_RenderCopy(Surface::getGlobalRenderer(), texture, nullptr, nullptr);
+			SDL_SetRenderTarget(Surface::getGlobalRenderer(), currentTexture);
+			SDL_DestroyTexture(texture);
+			texture = stretched;
+		}
+	}
+
+	return shared_ptr<OffscreenSurface>(new OffscreenSurface(texture));
 }
 
 OffscreenSurface::OffscreenSurface(OffscreenSurface&& other)
-	: Surface(other.raw)
+	: Surface(other.texture, other.renderer)
 {
-	other.raw = nullptr;
+	other.texture = nullptr;
 }
 
 OffscreenSurface::~OffscreenSurface()
 {
-	SDL_FreeSurface(raw);
+	if (texture) SDL_DestroyTexture(texture);
 }
 
 OffscreenSurface& OffscreenSurface::operator=(OffscreenSurface other)
@@ -340,39 +321,106 @@ OffscreenSurface& OffscreenSurface::operator=(OffscreenSurface other)
 
 void OffscreenSurface::swap(OffscreenSurface& other)
 {
-	std::swap(raw, other.raw);
+	std::swap(texture, other.texture);
+	std::swap(renderer, other.renderer);
+	std::swap(w, other.w);
+	std::swap(h, other.h);
 }
 
 void OffscreenSurface::convertToDisplayFormat() {
-	SDL_Surface *newSurface = SDL_DisplayFormat(raw);
-	if (newSurface) {
-		SDL_FreeSurface(raw);
-		raw = newSurface;
-	}
+	// No need to convert format with textures
 }
 
 bool OutputSurface::resolutionSupported(int width, int height)
 {
-	return !!SDL_VideoModeOK(width, height, 32, SDL_ANYFORMAT);
+	SDL_DisplayMode mode;
+	SDL_DisplayMode target = {0, width, height, 0, nullptr};
+	if (SDL_GetClosestDisplayMode(0, &target, &mode) == nullptr) {
+		return false;
+	}
+	if (mode.w < width || mode.h < height) {
+		return false;
+	}
+	if (mode.w > width && mode.h > height) {
+		return false;
+	}
+	DEBUG("Resolution supported: %dx%d\n", mode.w, mode.h);
+	return true;
 }
 
 // OutputSurface:
 
+OutputSurface::OutputSurface(SDL_Texture *texture, SDL_Renderer *renderer, SDL_Window *window)
+	: Surface(texture, renderer)
+	, window(window)
+{
+		SDL_QueryTexture(texture, nullptr, nullptr, &w, &h);
+}
+
+OutputSurface::~OutputSurface() {
+	if (texture) SDL_DestroyTexture(texture);
+	if (renderer) SDL_DestroyRenderer(renderer);
+	if (window) SDL_DestroyWindow(window);
+}
+
 unique_ptr<OutputSurface> OutputSurface::open(
-		int width, int height, int bitsPerPixel)
+		const char *caption, int width, int height, int bitsPerPixel)
 {
 	SDL_ShowCursor(SDL_DISABLE);
-	Uint32 flags = SDL_HWSURFACE | SDL_DOUBLEBUF;
+	SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "linear");
+
+	Uint32 flags = SDL_WINDOW_SHOWN;
 
 #if !defined(G2X_BUILD_OPTION_WINDOWED_MODE)
-	flags |= SDL_FULLSCREEN;
+	flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 #endif
 
-	SDL_Surface *raw = SDL_SetVideoMode(
-		width, height, bitsPerPixel, flags);
-	return unique_ptr<OutputSurface>(raw ? new OutputSurface(raw) : nullptr);
+	SDL_Window *window = SDL_CreateWindow(caption,
+		SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+		0, 0, flags);
+
+	if (!window) {
+		return nullptr;
+	}
+
+	SDL_Renderer *renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+	if (!renderer) {
+		renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_SOFTWARE);
+	}
+
+	if (!renderer) {
+		SDL_DestroyWindow(window);
+		return nullptr;
+	}
+
+	// Set the global renderer
+	Surface::setGlobalRenderer(renderer);
+
+	Uint32 format;
+	SDL_QueryTexture(SDL_GetRenderTarget(renderer), &format, nullptr, nullptr, nullptr);
+	SDL_Texture *texture = SDL_CreateTexture(
+		renderer,
+		format,
+		SDL_TEXTUREACCESS_TARGET,
+		width,
+		height
+	);
+
+	if (!texture) {
+		SDL_DestroyRenderer(renderer);
+		SDL_DestroyWindow(window);
+		return nullptr;
+	}
+
+	SDL_SetRenderTarget(renderer, texture);
+
+	return unique_ptr<OutputSurface>(new OutputSurface(texture, renderer, window));
 }
 
 void OutputSurface::flip() {
-	SDL_Flip(raw);
+	SDL_SetRenderTarget(renderer, nullptr);
+	SDL_RenderClear(renderer);
+	SDL_RenderCopy(renderer, texture, nullptr, nullptr);
+	SDL_RenderPresent(renderer);
+	SDL_SetRenderTarget(renderer, texture);
 }

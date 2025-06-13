@@ -63,7 +63,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <math.h>
-#include <SDL.h>
+#include <SDL2/SDL.h>
 #include <signal.h>
 
 #include <errno.h>
@@ -227,15 +227,13 @@ GMenu2X::GMenu2X() : input(*this), sc(this)
 		exit(EXIT_FAILURE);
 	}
 
-	SDL_WM_SetCaption("GMenu2X", nullptr);
-
 #if defined(G2X_BUILD_OPTION_SCREEN_WIDTH) && defined(G2X_BUILD_OPTION_SCREEN_HEIGHT)
 	s = OutputSurface::open(G2X_BUILD_OPTION_SCREEN_WIDTH, G2X_BUILD_OPTION_SCREEN_HEIGHT, 0);
 #else
 	// find largest resolution available
 	for (const auto res : supported_resolutions) {
 		if (OutputSurface::resolutionSupported(res.first, res.second) &&
-		    (s = OutputSurface::open(res.first, res.second, 0)))
+		    (s = OutputSurface::open("GMenu2X", res.first, res.second, 0)))
 			break;
 	}
 #endif

@@ -1,8 +1,27 @@
 # Project rules
 *.o
+*.o.d
+
+# CMake build artifacts
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+buildopts.h
+Makefile
+install_manifest.txt
+
+# Build directories
+/build*/
+build/
+
+# Cache directories
+.cache/
+*.cache
+
+# Executable
+gmenu2x
 
 # Top-level rules
-/Makefile
 /Makefile.in
 /aclocal.m4
 /autom4te.cache/
@@ -13,7 +32,19 @@
 /depcomp
 /install-sh
 /missing
-#	src/.deps/
-#	src/Makefile
-#	src/Makefile.in
-/build*/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

@@ -24,7 +24,7 @@
 
 #include "font_stack.h"
 
-#include <SDL.h>
+#include <SDL2/SDL.h>
 
 #include <cstdint>
 #include <memory>
@@ -46,14 +46,17 @@ struct RGBAColor {
 std::ostream& operator<<(std::ostream& os, RGBAColor const& color);
 
 /**
- * Abstract base class for surfaces; wraps SDL_Surface.
+ * Abstract base class for surfaces; wraps SDL_Texture.
  */
 class Surface {
 public:
+	static void setGlobalRenderer(SDL_Renderer* renderer) { globalRenderer = renderer; }
+	static SDL_Renderer* getGlobalRenderer() { return globalRenderer; }
+
 	Surface& operator=(Surface const& other) = delete;
 
-	int width() const { return raw->w; }
-	int height() const { return raw->h; }
+	int width() const { return w; }
+	int height() const { return h; }
 
 	void clearClipRect();
 	void setClipRect(int x, int y, int w, int h);
@@ -80,18 +83,32 @@ public:
 	}
 
 protected:
-	Surface(SDL_Surface *raw) : raw(raw) {}
+	Surface(SDL_Texture *texture, SDL_Renderer *renderer = nullptr) 
+		: texture(texture)
+		, renderer(renderer ? renderer : globalRenderer)
+		, w(0)
+		, h(0)
+	{
+		if (texture) {
+			SDL_QueryTexture(texture, nullptr, nullptr, &w, &h);
+		}
+	}
 	Surface(Surface const& other);
 
-	SDL_Surface *raw;
+	SDL_Texture *texture;
+	SDL_Renderer *renderer;
+	int w, h;
 
-	// For direct access to "raw".
+	// For direct access to texture and renderer
 	friend class Font;
 
 private:
-	void blit(SDL_Surface *destination, int x, int y, int w=0, int h=0, int a=-1) const;
-	void blitCenter(SDL_Surface *destination, int x, int y, int w=0, int h=0, int a=-1) const;
-	void blitRight(SDL_Surface *destination, int x, int y, int w=0, int h=0, int a=-1) const;
+	static SDL_Renderer* globalRenderer;
+	static SDL_Texture* globalTexture;
+
+	void blit(SDL_Texture *destination, int x, int y, int w=0, int h=0, int a=-1) const;
+	void blitCenter(SDL_Texture *destination, int x, int y, int w=0, int h=0, int a=-1) const;
+	void blitRight(SDL_Texture *destination, int x, int y, int w=0, int h=0, int a=-1) const;
 
 	/** Draws the given rectangle on this surface in the given color, blended
 	  * according to the alpha value of the color argument.
@@ -132,7 +149,8 @@ public:
 
 private:
 	friend class FontStack;
-	OffscreenSurface(SDL_Surface *raw) : Surface(raw) {}
+	OffscreenSurface(SDL_Surface *raw) : Surface(SDL_CreateTextureFromSurface(Surface::getGlobalRenderer(), raw)) {}
+	OffscreenSurface(SDL_Texture *texture, SDL_Renderer *renderer = nullptr) : Surface(texture, renderer) {}
 };
 
 /**
@@ -141,7 +159,7 @@ private:
 class OutputSurface: public Surface {
 public:
 	static std::unique_ptr<OutputSurface> open(
-			int width, int height, int bitsPerPixel);
+			const char *caption, int width, int height, int bitsPerPixel);
 
 	static bool resolutionSupported(int width, int height);
 
@@ -150,9 +168,11 @@ public:
 	 * acquires a new buffer to draw into.
 	 */
 	void flip();
+	~OutputSurface();
 
 private:
-	OutputSurface(SDL_Surface *raw) : Surface(raw) {}
+	OutputSurface(SDL_Texture *texture, SDL_Renderer *renderer, SDL_Window *window);
+	SDL_Window *window;
 };
 
 #endif

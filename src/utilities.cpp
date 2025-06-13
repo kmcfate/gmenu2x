@@ -23,7 +23,7 @@
 
 #include "debug.h"
 
-#include <SDL.h>
+#include <SDL2/SDL.h>
 #include "compat-algorithm.h"
 
 //for browsing the filesystem

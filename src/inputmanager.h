@@ -21,7 +21,7 @@
 #ifndef INPUTMANAGER_H
 #define INPUTMANAGER_H
 
-#include <SDL.h>
+#include <SDL2/SDL.h>
 #include <string>
 #include <vector>
 #include <array>

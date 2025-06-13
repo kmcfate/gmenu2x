@@ -3,7 +3,7 @@
 
 #include "gmenu2x.h"
 
-#include <SDL.h>
+#include <SDL2/SDL.h>
 
 #include <functional>
 #include <memory>

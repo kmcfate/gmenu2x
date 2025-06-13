@@ -71,7 +71,7 @@ InputManager::InputManager(GMenu2X& gmenu2x)
 	for (i = 0; i < SDL_NumJoysticks(); i++) {
 		struct Joystick joystick = {
 			SDL_JoystickOpen(i), false, false, false, false,
-			SDL_HAT_CENTERED, nullptr, this,
+			SDL_HAT_CENTERED, 0, this,
 		};
 		joysticks.push_back(joystick);
 	}
@@ -157,12 +157,8 @@ static int repeatRateMs(int repeatRate)
 }
 
 void InputManager::repeatRateChanged() {
-	int ms = repeatRateMs(gmenu2x.confInt["buttonRepeatRate"]);
-	if (ms == 0) {
-		SDL_EnableKeyRepeat(0, 0);
-	} else {
-		SDL_EnableKeyRepeat(INPUT_KEY_REPEAT_DELAY, ms);
-	}
+	// SDL2 doesn't have SDL_EnableKeyRepeat, key repeat is handled differently
+	// The repeat timing is now managed through our timer callbacks
 }
 
 bool InputManager::pollButton(Button *button) {
@@ -333,7 +329,9 @@ Uint32 InputManager::joystickRepeatCallback([[maybe_unused]] Uint32 timeout, str
 
 	SDL_JoyHatEvent e = {
 		SDL_JOYHATMOTION,
-		(Uint8) SDL_JoystickIndex(joystick->joystick),
+		// Should this be the current time?
+		0, // timestamp
+		(Uint8) SDL_JoystickInstanceID(joystick->joystick),
 		0,
 		hatState,
 	};
@@ -346,6 +344,6 @@ void InputManager::stopTimer(Joystick *joystick)
 {
 	if (joystick->timer) {
 		SDL_RemoveTimer(joystick->timer);
-		joystick->timer = nullptr;
+		joystick->timer = 0;
 	}
 }

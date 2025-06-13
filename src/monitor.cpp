@@ -4,7 +4,7 @@
 #include <climits>
 #include <dirent.h>
 #include <pthread.h>
-#include <SDL.h>
+#include <SDL2/SDL.h>
 #include <signal.h>
 #include <sys/inotify.h>
 #include <unistd.h>

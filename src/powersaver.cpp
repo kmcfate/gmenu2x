@@ -36,7 +36,7 @@ std::shared_ptr<PowerSaver> PowerSaver::getInstance()
 PowerSaver::PowerSaver()
 	: screenState(false)
 	, screenTimeout(0)
-	, screenTimer(nullptr)
+	, screenTimer(0)
 {
 	enableScreen();
 }
@@ -72,7 +72,7 @@ void PowerSaver::addScreenTimer() {
 void PowerSaver::removeScreenTimer() {
 	if (screenTimer) {
 		SDL_RemoveTimer(screenTimer);
-		screenTimer = nullptr;
+		screenTimer = 0;
 	}
 }
 

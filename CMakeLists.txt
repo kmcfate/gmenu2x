@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.4)
+cmake_minimum_required(VERSION 3.5)
 project(gmenu2x LANGUAGES CXX VERSION 1.0)
 
 include(GNUInstallDirs)
@@ -41,21 +41,22 @@ endif ()
 
 set(CARD_ROOT "/media" CACHE STRING "Top-level filesystem directory")
 
-find_package(SDL REQUIRED)
-find_package(SDL_ttf REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(SDL2 REQUIRED sdl2)
+pkg_check_modules(SDL2_TTF REQUIRED SDL2_ttf)
 find_package(PNG REQUIRED)
 
-find_library(LIBSDL_GFX_LIBRARY SDL_gfx)
-find_path(LIBSDL_GFX_INCLUDE_DIR SDL_gfxPrimitives.h ${SDL_INCLUDE_DIR})
-find_package_handle_standard_args(libSDL_gfx DEFAULT_MSG
-	LIBSDL_GFX_LIBRARY LIBSDL_GFX_INCLUDE_DIR)
+find_library(LIBSDL2_GFX_LIBRARY SDL2_gfx)
+find_path(LIBSDL2_GFX_INCLUDE_DIR SDL2_gfxPrimitives.h ${SDL2_INCLUDE_DIRS})
+find_package_handle_standard_args(libSDL2_gfx DEFAULT_MSG
+	LIBSDL2_GFX_LIBRARY LIBSDL2_GFX_INCLUDE_DIR)
 
-if(LIBSDL_GFX_FOUND)
-	set(LIBSDL_GFX_LIBRARIES ${LIBSDL_GFX_LIBRARY})
-	set(LIBSDL_GFX_INCLUDE_DIRS ${LIBSDL_GFX_INCLUDE_DIR})
+if(LIBSDL2_GFX_FOUND)
+	set(LIBSDL2_GFX_LIBRARIES ${LIBSDL2_GFX_LIBRARY})
+	set(LIBSDL2_GFX_INCLUDE_DIRS ${LIBSDL2_GFX_INCLUDE_DIR})
 else()
-	message(FATAL_ERROR "Unable to find SDL_gfx")
-endif(LIBSDL_GFX_FOUND)
+	message(FATAL_ERROR "Unable to find SDL2_gfx")
+endif(LIBSDL2_GFX_FOUND)
 
 find_library(LIBOPK_LIBRARY opk)
 find_path(LIBOPK_INCLUDE_DIR opk.h /usr/include)
@@ -94,9 +95,9 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
-					  ${SDL_LIBRARY}
-					  ${SDL_TTF_LIBRARIES}
-					  ${LIBSDL_GFX_LIBRARIES}
+					  ${SDL2_LIBRARIES}
+					  ${SDL2_TTF_LIBRARIES}
+					  ${LIBSDL2_GFX_LIBRARIES}
 					  ${PNG_LIBRARIES}
 					  ${LIBOPK_LIBRARIES}
 					  ${LIBXDGMIME_LIBRARIES}
@@ -104,12 +105,12 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 
 target_include_directories(${PROJECT_NAME} PRIVATE
-						   ${SDL_INCLUDE_DIR}
-						   ${SDL_TTF_INCLUDE_DIRS}
+						   ${SDL2_INCLUDE_DIRS}
+						   ${SDL2_TTF_INCLUDE_DIRS}
 						   ${PNG_INCLUDE_DIRS}
 						   ${LIBOPK_INCLUDE_DIRS}
 						   ${LIBXDGMIME_INCLUDE_DIRS}
-						   ${LIBSDL_GFX_INCLUDE_DIRS}
+						   ${LIBSDL2_GFX_INCLUDE_DIRS}
 						   ${CMAKE_BINARY_DIR}
 )
 

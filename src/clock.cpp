@@ -4,7 +4,7 @@
 #include "inputmanager.h"
 #include "utilities.h"
 
-#include <SDL.h>
+#include <SDL2/SDL.h>
 #include <atomic>
 #include <chrono>
 #include <algorithm>
@@ -53,7 +53,7 @@ extern "C" Uint32 callbackFunc(Uint32 /*timeout*/, void */*d*/)
 }
 
 Clock::Timer::Timer()
-	: timerID(NULL) { }
+	: timerID(0) { }
 
 Clock::Timer::~Timer()
 {

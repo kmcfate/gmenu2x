@@ -2,7 +2,7 @@
 #include <memory>
 
 #include <sys/inotify.h>
-#include <SDL/SDL.h>
+#include <SDL2/SDL.h>
 #include <unistd.h>
 
 #include "debug.h"

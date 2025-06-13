@@ -8,7 +8,7 @@
 #include <memory>
 #include <string>
 
-#include <SDL_ttf.h>
+#include <SDL2/SDL_ttf.h>
 
 #include "font_spec.h"
 

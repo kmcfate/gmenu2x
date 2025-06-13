@@ -8,7 +8,7 @@
 
 #include "debug.h"
 
-#include <SDL.h>
+#include <SDL2/SDL.h>
 #include <png.h>
 #include <cassert>
 #include <memory>
@@ -137,7 +137,7 @@ SDL_Surface *loadPNG(const std::string &path, bool loadAlpha) {
 
 	// Allocate [A]RGB surface to hold the image.
 	surface = SDL_CreateRGBSurface(
-		SDL_SWSURFACE | SDL_SRCALPHA, width, height, 32,
+		0, width, height, 32,
 		0x00FF0000, 0x0000FF00, 0x000000FF, loadAlpha ? 0xFF000000 : 0x00000000
 		);
 	if (!surface) {

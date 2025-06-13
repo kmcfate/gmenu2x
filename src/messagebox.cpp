@@ -75,7 +75,7 @@ int MessageBox::exec() {
 	box.h = textHeight + 2 * TEXT_PADDING;
 	box.w = gmenu2x.font->getTextWidth(text) + 2 * TEXT_PADDING;
 	if (gmenu2x.sc[icon]) {
-		box.h = max(box.h, (Uint16) (ICON_DIMENSION + 2 * ICON_PADDING));
+		box.h = max(box.h, (int) (ICON_DIMENSION + 2 * ICON_PADDING));
 		box.w += ICON_DIMENSION + ICON_PADDING;
 	}
 	box.x = (gmenu2x.width() - box.w) / 2;

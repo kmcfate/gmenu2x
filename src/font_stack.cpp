@@ -80,7 +80,7 @@ std::uint32_t *get_pixel32(const SDL_Surface *s, int row, int col) {
 
 SDL_Surface *drawOutline(const SDL_Surface *s) {
 	SDL_Surface *raw =
-	    SDL_CreateRGBSurface(SDL_SWSURFACE | SDL_SRCALPHA, s->w + 2, s->h + 2, 32,
+	SDL_CreateRGBSurface(0, s->w + 2, s->h + 2, 32,
 #if SDL_BYTEORDER == SDL_BIG_ENDIAN
 	                         0xff << 8, 0xff << 16, 0xff << 24, 0xff
 #else
@@ -295,7 +295,7 @@ std::shared_ptr<OffscreenSurface> FontStack::render(
 	} else {
 		const SDL_PixelFormat *fmt = surfaces[0]->format;
 		concatenated =
-		    SDL_CreateRGBSurface(SDL_SWSURFACE, width, height, fmt->BitsPerPixel,
+		    SDL_CreateRGBSurface(0, width, height, fmt->BitsPerPixel,
 		                         fmt->Rmask, fmt->Gmask, fmt->Bmask, fmt->Amask);
 		int x = 0;
 		for (SDL_Surface *src : surfaces) {
