@@ -266,7 +266,7 @@ bool InputManager::getButton(Button *button, bool wait) {
 	if (is_kb) {
 		for (i = 0; i < BUTTON_TYPE_SIZE; i++) {
 			if (buttonMap[i].kb_mapped
-					&& (unsigned int)event.key.keysym.sym == buttonMap[i].kb_code) {
+					&& (unsigned int)event.key.keysym.scancode == buttonMap[i].kb_code) {
 				*button = static_cast<Button>(i);
 				break;
 			}
