@@ -1,3 +1,6 @@
+[Updates]
+Migrated to SDL2 using accelerated rendering engine
+
 [Introduction]
 GMenu2X is a replacement for the official frontend for the gp2x released under the GNU GPL license.
 
