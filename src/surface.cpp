@@ -77,7 +77,6 @@ Surface::Surface(Surface const& other)
 	Uint32 format;
 	SDL_QueryTexture(other.texture, &format, nullptr, nullptr, nullptr);
 	texture = SDL_CreateTexture(renderer, format, SDL_TEXTUREACCESS_TARGET, w, h);
-	SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
 	SDL_Texture* currentTexture = SDL_GetRenderTarget(renderer);
 	SDL_SetRenderTarget(renderer, texture);
 	SDL_RenderCopy(renderer, other.texture, nullptr, nullptr);
@@ -124,12 +123,11 @@ void Surface::blitRight(Surface& destination, int x, int y, int w, int h, int a)
 }
 
 void Surface::box(SDL_Rect re, RGBAColor c) {
-	if (c.a == 255) {
-		SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, c.a);
-		SDL_RenderFillRect(renderer, &re);
-	} else if (c.a != 0) {
-		fillRectAlpha(re, c);
-	}
+	SDL_Texture* currentTexture = SDL_GetRenderTarget(renderer);
+	SDL_SetRenderTarget(renderer, texture);
+	SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, c.a);
+	SDL_RenderFillRect(renderer, &re);
+	SDL_SetRenderTarget(renderer, currentTexture);
 }
 
 void Surface::rectangle(SDL_Rect re, RGBAColor c) {
@@ -221,18 +219,6 @@ void Surface::blit(Surface& destination, SDL_Rect container, Font::HAlign halign
 	blit(destination, container.x, container.y);
 }
 
-void Surface::fillRectAlpha(SDL_Rect rect, RGBAColor c) {
-	applyClipRect(rect);
-	if (rect.w == 0 || rect.h == 0) {
-		return;
-	}
-
-	SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-	SDL_SetRenderDrawColor(renderer, c.r, c.g, c.b, c.a);
-	SDL_RenderFillRect(renderer, &rect);
-}
-
-
 // OffscreenSurface:
 
 shared_ptr<OffscreenSurface> OffscreenSurface::emptySurface(
@@ -248,7 +234,6 @@ shared_ptr<OffscreenSurface> OffscreenSurface::emptySurface(
 	if (!texture)
 		return shared_ptr<OffscreenSurface>();
 
-	SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
 	SDL_Texture* currentTexture = SDL_GetRenderTarget(Surface::getGlobalRenderer());
 	SDL_SetRenderTarget(Surface::getGlobalRenderer(), texture);
 	SDL_SetRenderDrawColor(Surface::getGlobalRenderer(), 0, 0, 0, 255);
@@ -289,7 +274,6 @@ shared_ptr<OffscreenSurface> OffscreenSurface::loadImage(
 			height ? height : texH
 		);
 		if (stretched) {
-			SDL_SetTextureBlendMode(stretched, SDL_BLENDMODE_BLEND);
 			SDL_Texture* currentTexture = SDL_GetRenderTarget(Surface::getGlobalRenderer());
 			SDL_SetRenderTarget(Surface::getGlobalRenderer(), stretched);
 			SDL_RenderCopy(Surface::getGlobalRenderer(), texture, nullptr, nullptr);
@@ -418,9 +402,10 @@ unique_ptr<OutputSurface> OutputSurface::open(
 }
 
 void OutputSurface::flip() {
+	SDL_Texture *currentTexture = SDL_GetRenderTarget(renderer);
 	SDL_SetRenderTarget(renderer, nullptr);
 	SDL_RenderClear(renderer);
 	SDL_RenderCopy(renderer, texture, nullptr, nullptr);
 	SDL_RenderPresent(renderer);
-	SDL_SetRenderTarget(renderer, texture);
+	SDL_SetRenderTarget(renderer, currentTexture);
 }
