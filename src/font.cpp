@@ -109,7 +109,9 @@ int Font::writeLine(Surface& surface, const std::uint16_t *text, int x, int y,
 		break;
 	}
 
-	SDL_Rect rect = { (Sint16) x, (Sint16) (y - 1), 0, 0 };
+	SDL_Rect rect = { (Sint16) x, (Sint16) (y - 1), (Uint16)width, (Uint16)s->h };
+	SDL_Texture *currentTexture = SDL_GetRenderTarget(surface.renderer);
+	SDL_SetRenderTarget(surface.renderer, surface.texture);
 	SDL_RenderCopy(surface.renderer, texture, NULL, &rect);
 
 	/* Note: rect.x / rect.y are reset everytime because SDL_RenderCopy
@@ -137,6 +139,7 @@ int Font::writeLine(Surface& surface, const std::uint16_t *text, int x, int y,
 	if (!s) {
 		ERROR("Font rendering failed: %s\n", SDL_GetError());
 		SDL_ClearError();
+		SDL_SetRenderTarget(surface.renderer, currentTexture);
 		return width;
 	}
 	texture = SDL_CreateTextureFromSurface(surface.renderer, s);
@@ -144,10 +147,13 @@ int Font::writeLine(Surface& surface, const std::uint16_t *text, int x, int y,
 	if (!texture) {
 		ERROR("Texture creation failed: %s\n", SDL_GetError());
 		SDL_ClearError();
+		SDL_SetRenderTarget(surface.renderer, currentTexture);
 		return width;
 	}
 	SDL_RenderCopy(surface.renderer, texture, NULL, &rect);
 	SDL_DestroyTexture(texture);
+
+	SDL_SetRenderTarget(surface.renderer, currentTexture);
 
 	return width;
 }
