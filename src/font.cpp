@@ -97,6 +97,7 @@ int Font::writeLine(Surface& surface, const std::uint16_t *text, int x, int y,
 		SDL_ClearError();
 		return width;
 	}
+	SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
 
 	switch (halign) {
 	case HAlignLeft:
@@ -150,6 +151,7 @@ int Font::writeLine(Surface& surface, const std::uint16_t *text, int x, int y,
 		SDL_SetRenderTarget(surface.renderer, currentTexture);
 		return width;
 	}
+	SDL_SetTextureBlendMode(texture, SDL_BLENDMODE_BLEND);
 	SDL_RenderCopy(surface.renderer, texture, NULL, &rect);
 	SDL_DestroyTexture(texture);
 
